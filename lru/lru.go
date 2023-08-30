@@ -1,4 +1,4 @@
-package tinyCache
+package lru
 
 import "container/list"
 
