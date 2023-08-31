@@ -19,6 +19,7 @@ type Group struct {
 	getter    Getter //缓存未命中时的回调
 	name      string
 	mainCache cache
+	peers     PeerPicker
 }
 
 var (
@@ -60,6 +61,13 @@ func (g *Group) Get(key string) (ByteView, error) {
 }
 
 func (g *Group) load(key string) (ByteView, error) {
+	if g.peers != nil {
+		if peer, ok := g.peers.PickPeer(key); ok {
+			if value, err := g.getFromPeer(peer, key); err == nil {
+				return value, err
+			}
+		}
+	}
 	return g.GetLocally(key)
 }
 
@@ -75,4 +83,19 @@ func (g *Group) GetLocally(key string) (ByteView, error) {
 
 func (g *Group) Add(key string, value ByteView) {
 	g.mainCache.Add(key, value)
+}
+
+func (g *Group) RegisterPeers(peers PeerPicker) {
+	if g.peers != nil {
+		panic("RegisterPeerPicker called more than once")
+	}
+	g.peers = peers
+}
+
+func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
+	bytes, err := peer.Get(g.name, key)
+	if err != nil {
+		return ByteView{}, err
+	}
+	return ByteView{b: bytes}, nil
 }
